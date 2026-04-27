@@ -125,6 +125,8 @@ export const adminApi = {
     api.patch(`/admin/users/${id}/unban`).then(r => r.data),
   flagReview: (id: string) =>
     api.patch(`/admin/reviews/${id}/flag`).then(r => r.data),
+  impersonateUser: (id: string) =>
+    api.post(`/admin/users/${id}/impersonate`).then(r => r.data.data),
 }
 
 // User

@@ -1,16 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Navbar from '../components/Navbar'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { adminApi } from '../lib/api'
-import { Users, Building2, Star, DollarSign, Ban, Check, Flag } from 'lucide-react'
+import { useAuthStore } from '../store/authStore'
+import { Users, Building2, Star, DollarSign, Ban, Check, Flag, DoorOpen } from 'lucide-react'
 
 type Tab = 'dashboard' | 'users' | 'salons' | 'reviews'
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { setAuth } = useAuthStore()
 
   const { data: dashboard } = useQuery({ queryKey: ['admin-dashboard'], queryFn: adminApi.getDashboard })
   const { data: users, isLoading: loadingUsers } = useQuery({ queryKey: ['admin-users'], queryFn: () => adminApi.getUsers(), enabled: tab === 'users' })
@@ -26,6 +30,22 @@ export default function AdminPage() {
     mutationFn: (id: string) => adminApi.flagReview(id),
     onSuccess: () => { toast.success('Avaliação marcada como spam'); queryClient.invalidateQueries({ queryKey: ['admin-reviews'] }) },
   })
+
+  const [impersonating, setImpersonating] = useState<string | null>(null)
+
+  async function handleImpersonate(u: any) {
+    setImpersonating(u.id)
+    try {
+      const res = await adminApi.impersonateUser(u.id)
+      setAuth({ userId: res.userId, name: res.name, email: res.email, role: res.role }, res.accessToken, res.refreshToken)
+      toast.success(`Entrando como ${res.name}...`)
+      navigate('/dashboard')
+    } catch {
+      toast.error('Erro ao entrar como usuário')
+    } finally {
+      setImpersonating(null)
+    }
+  }
 
   const tabs: { id: Tab; label: string; icon: any }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: DollarSign },
@@ -85,6 +105,7 @@ export default function AdminPage() {
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Tipo</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Ação</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Entrar</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -104,6 +125,16 @@ export default function AdminPage() {
                           className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg ${u.active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
                         >
                           {u.active ? <><Ban className="w-3 h-3" /> Banir</> : <><Check className="w-3 h-3" /> Desbanir</>}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleImpersonate(u)}
+                          disabled={impersonating === u.id}
+                          title={`Entrar como ${u.name}`}
+                          className="flex items-center justify-center w-8 h-8 rounded-lg text-primary-600 hover:bg-primary-50 disabled:opacity-40 transition-colors"
+                        >
+                          <DoorOpen className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
